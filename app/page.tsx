@@ -7,18 +7,41 @@ export default function Home() {
   const [examData, setExamData] = useState<any>(null);
 
   const generateExam = async () => {
+    if (!topic) return alert("Please enter a topic");
+    
     setLoading(true);
+    setExamData(null); // Purana data clear karein
+
     try {
+      console.log("Sending request to /api/generate...");
+      
       const res = await fetch("/api/generate", {
         method: "POST",
-        body: JSON.stringify({ topic, difficulty: "Medium", numQuestions: 5 }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          topic, 
+          difficulty: "Medium", 
+          numQuestions: 5 
+        }),
       });
+
+      console.log("Response status:", res.status);
+      
       const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || `Server error: ${res.status}`);
+      }
+
       setExamData(data);
-    } catch (err) {
-      alert("Error generating exam");
+    } catch (err: any) {
+      console.error("Fetch Error:", err);
+      alert(`Error: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -30,31 +53,35 @@ export default function Home() {
           <input 
             type="text" 
             placeholder="Enter topic (e.g. Embedded Systems)..."
-            className="flex-1 p-3 border rounded-lg"
+            className="flex-1 p-3 border rounded-lg focus:outline-blue-500"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
           />
           <button 
             onClick={generateExam}
             disabled={loading}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition"
           >
             {loading ? "Generating..." : "Generate Exam"}
           </button>
         </div>
 
         {examData && (
-          <div className="space-y-6 bg-white p-6 rounded-xl shadow-md">
-            <h2 className="text-2xl font-semibold">Generated Questions:</h2>
+          <div className="space-y-6 bg-white p-6 rounded-xl shadow-md animate-in fade-in duration-500">
+            <h2 className="text-2xl font-semibold border-b pb-2">Generated Questions:</h2>
             {examData.questions?.map((q: any, i: number) => (
-              <div key={i} className="border-b pb-4 last:border-0">
-                <p className="font-medium">{i + 1}. {q.question}</p>
-                <div className="grid grid-cols-2 gap-2 mt-2">
+              <div key={i} className="border-b pb-4 last:border-0 last:pb-0">
+                <p className="font-medium text-lg">{i + 1}. {q.question}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
                   {q.options.map((opt: string, j: number) => (
-                    <div key={j} className="p-2 bg-gray-100 rounded text-sm">{opt}</div>
+                    <div key={j} className="p-3 bg-gray-50 border rounded-md text-sm hover:bg-blue-50 transition">
+                      <span className="font-bold mr-2">{String.fromCharCode(65 + j)}.</span> {opt}
+                    </div>
                   ))}
                 </div>
-                <p className="mt-2 text-green-600 text-sm font-bold">Ans: {q.correct_answer}</p>
+                <p className="mt-3 text-sm font-semibold inline-block bg-green-100 text-green-800 px-3 py-1 rounded-full">
+                  Correct Answer: {q.correct_answer}
+                </p>
               </div>
             ))}
           </div>
