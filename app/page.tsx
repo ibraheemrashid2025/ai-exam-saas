@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   BookOpen, 
   HelpCircle, 
@@ -14,7 +14,8 @@ import {
   Cpu,
   History,
   Terminal,
-  ArrowRight
+  ArrowRight,
+  Trash2
 } from 'lucide-react';
 
 export default function Home() {
@@ -23,17 +24,30 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('curriculum'); 
   const [examData, setExamData] = useState<any>(null);
+  
+  // Real-time saved sessions storage state
+  const [savedSessions, setSavedSessions] = useState<any[]>([]);
+
+  // Load saved data from browser storage on mount
+  useEffect(() => {
+    const localData = localStorage.getItem('exam_ai_sessions');
+    if (localData) {
+      setSavedSessions(JSON.parse(localData));
+    }
+  }, []);
 
   const handleGenerate = async () => {
     if (!topic) return alert("Please paste the syllabus content first!");
     setLoading(true);
     setExamData(null);
 
+    const currentSessionTitle = sessionName.trim() || `SESSION_${new Date().toLocaleDateString()}`;
+
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, sessionName }),
+        body: JSON.stringify({ topic, sessionName: currentSessionTitle }),
       });
 
       const data = await res.json();
@@ -41,6 +55,20 @@ export default function Home() {
       if (data.status === 'success') {
         setExamData(data);
         setActiveTab('curriculum'); 
+
+        // Local storage pipeline - Appending new data to the list
+        const newSessionItem = {
+          id: Date.now().toString(),
+          title: currentSessionTitle,
+          payloadText: topic,
+          timestamp: new Date().toLocaleString(),
+          matrixData: data
+        };
+
+        const updatedSessions = [newSessionItem, ...savedSessions];
+        setSavedSessions(updatedSessions);
+        localStorage.setItem('exam_ai_sessions', JSON.stringify(updatedSessions));
+
       } else {
         alert("Agents encountered an error: " + (data.message || data.error));
       }
@@ -51,11 +79,22 @@ export default function Home() {
     }
   };
 
+  // Delete an individual session record
+  const handleDeleteSession = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevents loading the session while deleting
+    const filtered = savedSessions.filter(item => item.id !== id);
+    setSavedSessions(filtered);
+    localStorage.setItem('exam_ai_sessions', JSON.stringify(filtered));
+    if (examData && savedSessions.find(s => s.id === id)?.matrixData?.sessionName === examData.sessionName) {
+      setExamData(null);
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
       
-      {/* Sidebar - Premium AI SaaS Navigation */}
-      <div className="w-64 bg-slate-900/60 backdrop-blur-xl border-r border-slate-800 p-6 flex flex-col gap-8">
+      {/* Sidebar - Dynamic AI SaaS Navigation */}
+      <div className="w-66 bg-slate-900/60 backdrop-blur-xl border-r border-slate-800 p-6 flex flex-col gap-8 select-none">
         
         {/* Tech Branding Logo Area */}
         <div className="flex items-center gap-3 group cursor-pointer">
@@ -69,27 +108,56 @@ export default function Home() {
             <span className="font-black text-lg tracking-wider bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
               EXAM<span className="text-cyan-400">AI</span>
             </span>
-            <span className="text-[10px] font-bold text-indigo-400 tracking-widest uppercase -mt-1">Core Engine v1.1</span>
+            <span className="text-[10px] font-bold text-indigo-400 tracking-widest uppercase -mt-1">Core Engine v1.2</span>
           </div>
         </div>
 
         <div className="h-[1px] bg-gradient-to-r from-slate-800 to-transparent" />
 
-        {/* Saved Archival History */}
-        <div className="flex flex-col gap-4">
+        {/* Dynamic Saved Archival History List */}
+        <div className="flex flex-col gap-4 flex-1 overflow-y-auto pr-1">
           <div className="text-[10px] font-black text-slate-500 tracking-widest uppercase flex items-center gap-2">
             <History className="w-3 h-3 text-indigo-400" /> Archival Registries
           </div>
-          <div className="flex flex-col gap-1 text-sm text-slate-400">
-            <div className="flex items-center gap-2 p-2.5 hover:bg-slate-800/60 hover:text-cyan-400 rounded-xl cursor-pointer transition-all border border-transparent hover:border-slate-800">
-              <Terminal className="w-4 h-4 text-slate-600" /> AI Midterm Assessment
-            </div>
-            <div className="flex items-center gap-2 p-2.5 hover:bg-slate-800/60 hover:text-cyan-400 rounded-xl cursor-pointer transition-all border border-transparent hover:border-slate-800">
-              <Terminal className="w-4 h-4 text-slate-600" /> Operating Systems Quiz
-            </div>
-            <div className="flex items-center gap-2 p-2.5 hover:bg-slate-800/60 hover:text-cyan-400 rounded-xl cursor-pointer transition-all border border-transparent hover:border-slate-800">
-              <Terminal className="w-4 h-4 text-slate-600" /> Embedded Systems Blueprint
-            </div>
+          
+          <div className="flex flex-col gap-1.5 text-sm text-slate-400">
+            {savedSessions.length === 0 ? (
+              <div className="text-xs text-slate-600 border border-dashed border-slate-800 p-4 rounded-xl text-center">
+                No telemetry data archived yet. Compile a matrix to save records.
+              </div>
+            ) : (
+              savedSessions.map((session) => (
+                <div 
+                  key={session.id}
+                  onClick={() => {
+                    setExamData(session.matrixData);
+                    setTopic(session.payloadText);
+                    setSessionName(session.title);
+                    setActiveTab('curriculum');
+                  }}
+                  className={`group/item flex items-center justify-between gap-2 p-2.5 rounded-xl cursor-pointer transition-all border ${
+                    examData && examData.sessionName === session.title
+                      ? 'bg-indigo-600/10 text-cyan-400 border-indigo-500/30' 
+                      : 'border-transparent bg-slate-900/40 hover:bg-slate-800/60 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 overflow-hidden truncate">
+                    <Terminal className={`w-4 h-4 flex-shrink-0 ${examData && examData.sessionName === session.title ? 'text-cyan-400' : 'text-slate-600'}`} />
+                    <div className="flex flex-col truncate">
+                      <span className="font-medium truncate">{session.title}</span>
+                      <span className="text-[9px] text-slate-600 group-hover/item:text-slate-500 font-mono">{session.timestamp.split(',')[0]}</span>
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={(e) => handleDeleteSession(session.id, e)}
+                    className="opacity-0 group-hover/item:opacity-100 p-1 text-slate-600 hover:text-rose-400 transition-all rounded"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -100,8 +168,6 @@ export default function Home() {
         {/* Header Segment */}
         <div className="flex flex-col gap-2 relative">
           <div className="absolute -top-10 -left-10 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -top-5 right-20 w-48 h-48 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
-          
           <h1 className="text-4xl font-black tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
             Autonomous Multi-Agent AI Assessment Matrix
           </h1>
@@ -158,9 +224,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* ===================================================================== */}
-        {/* LIVE DATA INTERFACE DISPLAY */}
-        {/* ===================================================================== */}
+        {/* Tabs and Output Interface Render */}
         {examData && (
           <div className="flex flex-col gap-6 animate-fadeIn mt-2">
             
