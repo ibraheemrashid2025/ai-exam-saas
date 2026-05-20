@@ -55,8 +55,9 @@ export async function POST(req: Request) {
       }
     `;
 
+    // Updated the model to the latest active llama-3.1-8b-instant model
     const response = await groq.chat.completions.create({
-      model: "llama3-8b-8192",
+      model: "llama-3.1-8b-instant", 
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Session: ${sessionName || 'Exam'}\nSyllabus notes to analyze:\n${topic}` }
@@ -80,7 +81,6 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     console.error("Mega pipeline execution failed:", error);
-    // Ab yeh real error message bhejega taake alert box mein wajah saaf dikhe!
     return NextResponse.json({ 
       status: 'error', 
       message: error.message || "An unknown backend error occurred." 
