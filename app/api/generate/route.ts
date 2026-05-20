@@ -10,10 +10,9 @@ export async function POST(req: Request) {
     const { topic, sessionName } = await req.json();
 
     if (!topic) {
-      return NextResponse.json({ error: "Syllabus or Topic is required" }, { status: 400 });
+      return NextResponse.json({ status: 'error', message: "Syllabus or Topic is required" });
     }
 
-    // Ek hi system prompt mein saare 5 agents ka dimaagh daal diya
     const systemPrompt = `
       You are an automated 5-agent university assessment builder system. 
       Analyze the provided syllabus/text and generate a comprehensive exam plan.
@@ -56,7 +55,6 @@ export async function POST(req: Request) {
       }
     `;
 
-    // Blazing fast single call with strict JSON mode
     const response = await groq.chat.completions.create({
       model: "llama3-8b-8192",
       messages: [
@@ -70,22 +68,22 @@ export async function POST(req: Request) {
     const content = response.choices[0]?.message?.content || '{}';
     const parsedData = JSON.parse(content);
 
-    // Frontend ko data uski exact umeed ke mutabiq bhej rahe hain
     return NextResponse.json({
       status: 'success',
-      curriculum: parsedData.curriculum,
-      questions: parsedData.questions,
-      difficulty: parsedData.difficulty,
-      rubric: parsedData.rubric,
-      analytics: parsedData.analytics,
+      curriculum: parsedData.curriculum || { subject: "Not Specified", topics: [] },
+      questions: parsedData.questions || { questions: [] },
+      difficulty: parsedData.difficulty || { difficulty_distribution: {}, calibrated_questions: [] },
+      rubric: parsedData.rubric || { total_marks: 0, rubric: [] },
+      analytics: parsedData.analytics || { total_questions: 0, total_marks: 0, topic_coverage: [], gaps: [], summary: "" },
       sessionName
     });
 
   } catch (error: any) {
     console.error("Mega pipeline execution failed:", error);
+    // Ab yeh real error message bhejega taake alert box mein wajah saaf dikhe!
     return NextResponse.json({ 
       status: 'error', 
-      message: "Cloud server par load zyada hai, please retry karein!" 
-    }, { status: 500 });
+      message: error.message || "An unknown backend error occurred." 
+    });
   }
 }
