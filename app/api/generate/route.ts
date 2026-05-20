@@ -15,7 +15,11 @@ export async function POST(req: Request) {
 
     const systemPrompt = `
       You are an automated 5-agent university assessment builder system. 
-      Analyze the provided syllabus/text and generate a comprehensive exam plan.
+      Analyze the provided syllabus/text and generate a highly detailed, comprehensive exam plan.
+      
+      CRITICAL REQUIREMENT: You MUST generate AT LEAST 10 distinct, diverse, and comprehensive examination questions (include a healthy mix of MCQs, Short Questions, and True/False based on the syllabus depth). 
+      For EVERY question generated, you must also provide its corresponding entry in the 'difficulty' calibration and 'rubric' schema. Do not truncate the output.
+
       You MUST respond with a single, valid JSON object that strictly matches the expected frontend structure below. No markdown formatting like \`\`\`json, just raw JSON.
 
       JSON Structure Expected:
@@ -28,24 +32,28 @@ export async function POST(req: Request) {
         },
         "questions": {
           "questions": [
-            { "question_text": "Write a complete question here?", "question_type": "MCQ", "options": ["Option A", "Option B", "Option C", "Option D"], "correct_answer": "Option A" }
+            { "question_text": "Question 1 text here?", "question_type": "MCQ", "options": ["Option A", "Option B", "Option C", "Option D"], "correct_answer": "Option A" },
+            { "question_text": "Question 2 text here?", "question_type": "Short Question", "options": [], "correct_answer": "Expected key bullet points for answer" }
+            // Generate at least 10 questions here...
           ]
         },
         "difficulty": {
-          "difficulty_distribution": { "Easy": 2, "Medium": 3, "Hard": 1 },
+          "difficulty_distribution": { "Easy": 3, "Medium": 5, "Hard": 2 },
           "calibrated_questions": [
-            { "question_id": "1", "difficulty": "Medium", "question_text": "Same question text here", "difficulty_reason": "Why this question is medium difficulty" }
+            { "question_id": "1", "difficulty": "Medium", "question_text": "Question 1 text here", "difficulty_reason": "Why this question is medium" }
+            // Must calibrate all 10+ questions here...
           ]
         },
         "rubric": {
-          "total_marks": 30,
+          "total_marks": 50,
           "rubric": [
-            { "question_text": "Same question text here", "marks": 5, "correct_answer": "Option A", "marking_guide": "Criteria for awarding full marks" }
+            { "question_text": "Question 1 text here", "marks": 5, "correct_answer": "Option A", "marking_guide": "Criteria for awarding full marks" }
+            // Must provide rubric for all 10+ questions here...
           ]
         },
         "analytics": {
-          "total_questions": 5,
-          "total_marks": 30,
+          "total_questions": 10,
+          "total_marks": 50,
           "topic_coverage": [
             { "topic": "Topic Name", "coverage_percentage": 90, "questions_count": 4 }
           ],
@@ -55,14 +63,13 @@ export async function POST(req: Request) {
       }
     `;
 
-    // Updated the model to the latest active llama-3.1-8b-instant model
     const response = await groq.chat.completions.create({
       model: "llama-3.1-8b-instant", 
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Session: ${sessionName || 'Exam'}\nSyllabus notes to analyze:\n${topic}` }
       ],
-      temperature: 0.2,
+      temperature: 0.3, // Slightly increased for better question diversity
       response_format: { type: "json_object" }, 
     });
 
